@@ -49,4 +49,20 @@ Future potential:
 ---
 
 ## 📂 Project Structure
+<pre>
+ai_security/  
+    └── llm_tester/  
+        ├── main.py # Core Python script  
+        ├── prompts.txt # List of high-risk prompts to test  
+        └── README.md # This file  
+</pre>
+---
 
+## 🛠 Installation
+
+Python 3.10+ recommended.
+
+```bash
+git clone https://github.com/YOUR_USERNAME/llm_tester
+cd llm_tester
+pip install -r requirements.txt
