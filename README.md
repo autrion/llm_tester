@@ -1,15 +1,16 @@
 # LLM Tester (AI Security Toolkit)
 
-LLM Tester is a lightweight command-line utility for running high-risk prompts through a Large Language Model and collecting simple security signals. It is intentionally minimal: the current version operates entirely offline by default, producing deterministic demo responses so you can exercise the pipeline without network access.
+LLM Tester is a lightweight command-line utility for running high-risk prompts through a Large Language Model and collecting simple security signals. It is intentionally minimal: the current version operates entirely offline by default, producing deterministic demo responses so you can exercise the pipeline without network access. When credentials are provided, it connects to an AnythingLLM instance so you can route prompts to any model configured there.
 
 ## Project status
-- **Current behavior:** Loads prompts from a text file, generates demo responses, scans for basic red-flag keywords, and writes results to CSV or JSONL.
-- **LLM calls:** A real LLM API integration is **not implemented yet**. Setting an API key without demo mode enabled will raise a `NotImplementedError`.
+- **Current behavior:** Loads prompts from a text file, optionally forwards them to AnythingLLM for real model responses, scans for basic red-flag keywords, and writes results to CSV or JSONL.
+- **LLM calls:** Uses AnythingLLM as the default provider when an API key is present. Falls back to deterministic demo responses when demo mode is enabled or credentials are missing.
 - **Scope:** Useful for exercising a red-team style workflow skeleton; not a full evaluator.
 
 ## Features
 - Reads prompts from `prompts.txt` (ignores blank lines and lines starting with `#`).
 - Deterministic demo mode when no API key is set or when `LLM_TESTER_DEMO` is enabled.
+- Sends prompts to AnythingLLM when configured, enabling quick testing of any connected model.
 - Simple response analysis that flags risky keywords (e.g., `hack`, `bypass`, `jailbreak`).
 - Outputs structured results as `.csv` or `.jsonl` with timestamps and metrics.
 - Pure standard-library Python; no extra dependencies required.
@@ -29,11 +30,22 @@ export LLM_TESTER_DEMO=1
 python main.py --output results.csv
 ```
 
-Use `--max-prompts` to limit how many prompts from `prompts.txt` are processed and `--prompts-file` to point to a custom list.
+Use `--max-prompts` to limit how many prompts from `prompts.txt` are processed and `--prompts-file` to point to a custom list. Provide AnythingLLM credentials to get real model outputs instead of demo responses.
 
 ## Configuration
-- `LLM_API_KEY`: Placeholder for a future real provider key. Currently unused; real API calls are not implemented.
+- `ANYTHINGLLM_API_KEY`: API key for your AnythingLLM instance.
+- `ANYTHINGLLM_URL`: Base URL to your AnythingLLM server (defaults to `http://localhost:3001`).
+- `ANYTHINGLLM_WORKSPACE`: Workspace slug to target (defaults to `default`).
 - `LLM_TESTER_DEMO`: When set to any value, forces deterministic demo responses even if an API key is present.
+
+Example configuration for running against AnythingLLM:
+
+```bash
+export ANYTHINGLLM_API_KEY=your_token_here
+export ANYTHINGLLM_URL=https://anythingllm.example.com
+export ANYTHINGLLM_WORKSPACE=red-team
+python main.py --output results.jsonl --model mistral-small-latest
+```
 
 ## Outputs
 Each processed prompt produces a record with:
@@ -56,12 +68,13 @@ Choose an output format with the file extension:
 ```
 llm_tester/
 ├── main.py      # CLI entry point and analysis logic
+├── anythingllm_client.py  # Minimal AnythingLLM HTTP client
 ├── prompts.txt  # Default high-risk prompt list
 └── README.md    # Project documentation
 ```
 
 ## Roadmap (high level)
-- Wire up a real LLM provider client using `LLM_API_KEY`.
+- Harden the AnythingLLM integration (streaming, retries, richer error handling).
 - Expand analysis rules beyond basic keyword scans.
 - Add scoring, logging improvements, and richer reporting.
 - Package as a reusable module or CLI tool.

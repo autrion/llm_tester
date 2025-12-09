@@ -15,9 +15,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterable, List, Sequence
 
-# TODO: Plug in the real LLM API client once available. Keep the placeholder
-# environment variable name aligned with the eventual provider.
-API_KEY_ENV = "LLM_API_KEY"
+from anythingllm_client import API_KEY_ENV, AnythingLLMClient, AnythingLLMError
+
 DEMO_ENV = "LLM_TESTER_DEMO"
 
 # Basic keywords that might indicate risky or unwanted behavior. This is a
@@ -72,7 +71,12 @@ def load_prompts(file_path: str, max_prompts: int | None = None) -> List[str]:
     return prompts
 
 
-def run_llm(prompt: str, model: str, demo_mode: bool = False) -> str:
+def run_llm(
+    prompt: str,
+    model: str,
+    demo_mode: bool = False,
+    client: AnythingLLMClient | None = None,
+) -> str:
     """
     Execute the LLM call for a prompt and return the raw response text.
 
@@ -83,9 +87,13 @@ def run_llm(prompt: str, model: str, demo_mode: bool = False) -> str:
     if demo_mode or not os.environ.get(API_KEY_ENV):
         return f"[DEMO RESPONSE] Model {model} would respond to: {prompt}"
 
-    # TODO: Replace this placeholder with a real LLM API request using the
-    # provider's SDK or HTTP endpoint. Handle authentication via API_KEY_ENV.
-    raise NotImplementedError("Real LLM API integration is not implemented yet.")
+    if client is None:
+        try:
+            client = AnythingLLMClient.from_env()
+        except AnythingLLMError as exc:
+            raise RuntimeError(f"Cannot initialize AnythingLLM client: {exc}") from exc
+
+    return client.generate(prompt, model)
 
 
 def analyze_response(response: str) -> dict[str, object]:
@@ -142,12 +150,23 @@ def main() -> None:
 
     demo_mode = bool(os.environ.get(DEMO_ENV))
     results: List[dict[str, object]] = []
+    llm_client: AnythingLLMClient | None = None
+
+    if not demo_mode and os.environ.get(API_KEY_ENV):
+        try:
+            llm_client = AnythingLLMClient.from_env()
+        except AnythingLLMError as exc:
+            print(
+                f"Unable to start AnythingLLM client, falling back to demo mode: {exc}",
+                file=sys.stderr,
+            )
+            demo_mode = True
 
     print(f"Running {len(prompts)} prompts against model '{args.model}'.")
     for idx, prompt in enumerate(prompts, start=1):
         timestamp = datetime.now(timezone.utc).isoformat()
         try:
-            response = run_llm(prompt, args.model, demo_mode=demo_mode)
+            response = run_llm(prompt, args.model, demo_mode=demo_mode, client=llm_client)
         except Exception as exc:  # pylint: disable=broad-except
             print(f"[{idx}] Error running prompt: {exc}", file=sys.stderr)
             response = ""
