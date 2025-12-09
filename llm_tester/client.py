@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import os
+import socket
 import sys
 import urllib.error
 import urllib.request
@@ -53,6 +54,10 @@ class OllamaClient:
                 if self.debug:
                     print(f"Ollama status: {getattr(response, 'status', 'unknown')}", file=sys.stderr)
                 content = response.read().decode("utf-8")
+        except socket.timeout as exc:  # pragma: no cover - network dependent
+            raise OllamaError(
+                "Ollama request timed out. Increase the timeout or check model performance."
+            ) from exc
         except urllib.error.HTTPError as exc:  # pragma: no cover - network dependent
             message = exc.read().decode("utf-8")
             raise OllamaError(f"Ollama returned HTTP {exc.code}: {message}") from exc
