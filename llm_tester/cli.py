@@ -21,6 +21,7 @@ def parse_args(argv: List[str]) -> argparse.Namespace:
     parser.add_argument("--max-prompts", type=int, default=None, help="Maximum number of prompts to process.")
     parser.add_argument("--output", default="results.csv", help="Output file path (.csv or .jsonl).")
     parser.add_argument("--ollama-url", default=None, help="Ollama base URL (overrides env).")
+    parser.add_argument("--timeout", type=int, default=30, help="Request timeout in seconds for the Ollama client.")
     parser.add_argument("--demo", action="store_true", help="Run in offline demo mode without network calls.")
     parser.add_argument("--format", choices=["csv", "jsonl"], default=None, help="Force output format.")
     return parser.parse_args(argv)
@@ -60,7 +61,7 @@ def build_client(args: argparse.Namespace) -> OllamaClient | None:
     if base_url:
         os.environ.setdefault(BASE_URL_ENV, base_url)
 
-    return OllamaClient.from_env()
+    return OllamaClient.from_env(timeout=args.timeout)
 
 
 def main(argv: List[str] | None = None) -> int:
