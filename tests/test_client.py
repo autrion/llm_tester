@@ -20,6 +20,14 @@ def test_extract_message_raises_on_missing() -> None:
         OllamaClient.extract_message({"not": "present"})
 
 
+def test_from_env_applies_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("OLLAMA_URL", "http://example.com")
+    client = OllamaClient.from_env(timeout=45)
+
+    assert client.base_url == "http://example.com"
+    assert client.timeout == 45
+
+
 def test_generate_converts_socket_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
     client = OllamaClient(base_url="http://example.com")
 

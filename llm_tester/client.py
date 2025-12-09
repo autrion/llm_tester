@@ -26,9 +26,9 @@ class OllamaClient:
     debug: bool = False
 
     @classmethod
-    def from_env(cls, *, debug: bool = False) -> "OllamaClient":
+    def from_env(cls, *, timeout: int = 30, debug: bool = False) -> "OllamaClient":
         base_url = os.environ.get(BASE_URL_ENV, DEFAULT_BASE_URL)
-        return cls(base_url=base_url, debug=debug)
+        return cls(base_url=base_url, timeout=timeout, debug=debug)
 
     def _build_url(self) -> str:
         return f"{self.base_url.rstrip('/')}/api/generate"
