@@ -1,4 +1,4 @@
-"""Core orchestration for running prompts against AnythingLLM or demo mode."""
+"""Core orchestration for running prompts against Ollama or demo mode."""
 from __future__ import annotations
 
 import os
@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from typing import Iterable, List, Sequence
 
 from llm_tester.analysis import analyze_response
-from llm_tester.client import AnythingLLMClient, AnythingLLMError
+from llm_tester.client import OllamaClient, OllamaError
 from llm_tester.prompts import Prompt
 
 DEMO_ENV = "LLM_TESTER_DEMO"
@@ -28,14 +28,14 @@ def run_prompt(
     prompt: Prompt,
     model: str,
     *,
-    client: AnythingLLMClient | None,
+    client: OllamaClient | None,
     demo_mode: bool,
 ) -> ResultRecord:
     if demo_mode:
         response = f"[DEMO RESPONSE] Model {model} would respond to: {prompt.text}"
     else:
         if client is None:
-            raise AnythingLLMError("LLM client is not configured")
+            raise OllamaError("LLM client is not configured")
         response = client.generate(prompt.text, model)
 
     analysis = analyze_response(response)
@@ -54,7 +54,7 @@ def run_assessment(
     prompts: Sequence[Prompt],
     model: str,
     *,
-    client: AnythingLLMClient | None = None,
+    client: OllamaClient | None = None,
     demo_mode: bool | None = None,
 ) -> List[ResultRecord]:
     results: List[ResultRecord] = []

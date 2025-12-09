@@ -10,14 +10,14 @@ The project is licensed under the MIT License. See [LICENSE](LICENSE) for detail
 
 - Line-delimited prompt files with optional metadata comments (e.g., `# category: prompt_injection`).
 - Deterministic offline demo mode for quick runs without network access.
-- AnythingLLM client integration when API credentials are available.
+- Ollama client integration for local or remote model endpoints.
 - Rule engine with keyword and regex rules for common jailbreak, prompt-injection, and safety-bypass cues.
 - Structured results in CSV or JSONL, including triggered rule names and response lengths.
 
 ## Requirements
 
 - Python 3.11+
-- Optional: access to an AnythingLLM instance and API key
+- Optional: access to an Ollama instance (defaults to `http://localhost:11434`)
 
 ## Quick start
 
@@ -25,11 +25,9 @@ The project is licensed under the MIT License. See [LICENSE](LICENSE) for detail
 # Run in demo mode (offline)
 python -m llm_tester.cli --demo --output results.csv
 
-# Run against AnythingLLM
-export ANYTHINGLLM_API_KEY=your_token_here
-export ANYTHINGLLM_URL=https://anythingllm.example.com
-export ANYTHINGLLM_WORKSPACE=red-team
-python -m llm_tester.cli --model mistral-small-latest --output results.jsonl
+# Run against Ollama
+export OLLAMA_URL=http://localhost:11434  # optional; defaults to this value
+python -m llm_tester.cli --model llama3 --output results.jsonl
 ```
 
 Use `--prompts-file` to point to a custom line-delimited prompt list and `--max-prompts` to limit how many entries are processed.
@@ -69,7 +67,7 @@ llm_tester/
 ├── llm_tester/
 │   ├── analysis.py      # Response analysis helpers
 │   ├── cli.py           # CLI entry point
-│   ├── client.py        # AnythingLLM client
+│   ├── client.py        # Ollama client
 │   ├── prompts.py       # Prompt loader with metadata support
 │   └── rules.py         # Rule engine for jailbreak and injection cues
 ├── prompts.txt          # Default prompt list
