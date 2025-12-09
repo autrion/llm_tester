@@ -9,6 +9,7 @@ from typing import Iterable, List, Sequence
 from llm_tester.analysis import analyze_response
 from llm_tester.client import OllamaClient, OllamaError
 from llm_tester.prompts import Prompt
+from llm_tester.rules import Rule
 
 DEMO_ENV = "LLM_TESTER_DEMO"
 
@@ -30,6 +31,9 @@ def run_prompt(
     *,
     client: OllamaClient | None,
     demo_mode: bool,
+    analyze_prompt: bool = False,
+    rules: Sequence[Rule] | None = None,
+    prompt_rules: Sequence[Rule] | None = None,
 ) -> ResultRecord:
     if demo_mode:
         response = f"[DEMO RESPONSE] Model {model} would respond to: {prompt.text}"
@@ -38,7 +42,13 @@ def run_prompt(
             raise OllamaError("LLM client is not configured")
         response = client.generate(prompt.text, model)
 
-    analysis = analyze_response(response)
+    analysis = analyze_response(
+        response,
+        rules=rules,
+        include_prompt_analysis=analyze_prompt,
+        prompt=prompt.text,
+        prompt_rules=prompt_rules,
+    )
     return ResultRecord(
         timestamp=datetime.now(timezone.utc).isoformat(),
         prompt=prompt.text,
@@ -56,12 +66,23 @@ def run_assessment(
     *,
     client: OllamaClient | None = None,
     demo_mode: bool | None = None,
+    analyze_prompt: bool = False,
+    rules: Sequence[Rule] | None = None,
+    prompt_rules: Sequence[Rule] | None = None,
 ) -> List[ResultRecord]:
     results: List[ResultRecord] = []
     effective_demo = bool(os.environ.get(DEMO_ENV)) if demo_mode is None else demo_mode
 
     for prompt in prompts:
-        record = run_prompt(prompt, model, client=client, demo_mode=effective_demo)
+        record = run_prompt(
+            prompt,
+            model,
+            client=client,
+            demo_mode=effective_demo,
+            analyze_prompt=analyze_prompt,
+            rules=rules,
+            prompt_rules=prompt_rules,
+        )
         results.append(record)
     return results
 
