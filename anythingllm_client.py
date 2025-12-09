@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
@@ -28,9 +29,10 @@ class AnythingLLMClient:
     api_key: str
     workspace: str = DEFAULT_WORKSPACE
     timeout: int = 30
+    debug: bool = False
 
     @classmethod
-    def from_env(cls) -> "AnythingLLMClient":
+    def from_env(cls, *, debug: bool = False) -> "AnythingLLMClient":
         """Create a client using environment configuration.
 
         Required:
@@ -49,7 +51,12 @@ class AnythingLLMClient:
 
         base_url = os.environ.get(BASE_URL_ENV, DEFAULT_BASE_URL)
         workspace = os.environ.get(WORKSPACE_ENV, DEFAULT_WORKSPACE)
-        return cls(base_url=base_url, api_key=api_key, workspace=workspace)
+        return cls(
+            base_url=base_url,
+            api_key=api_key,
+            workspace=workspace,
+            debug=debug,
+        )
 
     def _build_url(self) -> str:
         return f"{self.base_url.rstrip('/')}/api/v1/workspaces/{self.workspace}/chat"
@@ -78,8 +85,18 @@ class AnythingLLMClient:
 
         try:
             with urllib.request.urlopen(request, timeout=self.timeout) as response:  # noqa: S310
+                if self.debug:
+                    print(
+                        f"AnythingLLM responded with status {getattr(response, 'status', 'unknown')}.",
+                        file=sys.stderr,
+                    )
                 content = response.read().decode("utf-8")
         except urllib.error.HTTPError as exc:  # pragma: no cover - thin wrapper
+            if self.debug:
+                print(
+                    f"AnythingLLM HTTP error status {exc.code} received.",
+                    file=sys.stderr,
+                )
             body = exc.read().decode("utf-8")
             raise AnythingLLMError(
                 f"AnythingLLM request failed with status {exc.code}: {body}"
