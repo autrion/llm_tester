@@ -1,4 +1,9 @@
+<p align="left">
+  <img src="logo.png" width="350"><br><br>
+
 # LLM Tester (AI Security Toolkit)
+</p>
+
 
 LLM Tester is a small but focused toolkit for exercising Large Language Models with common red-team prompts. It ships with a simple CLI, a deterministic offline demo mode, and a rule engine that highlights jailbreak and prompt-injection behaviors.
 
