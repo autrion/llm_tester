@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Iterable, List, Sequence
 
 from anythingllm_client import API_KEY_ENV, AnythingLLMClient, AnythingLLMError
+from rules import evaluate_text
 
 DEMO_ENV = "LLM_TESTER_DEMO"
 
@@ -51,6 +52,16 @@ def parse_args(args: Sequence[str]) -> argparse.Namespace:
             "Path to the prompts JSON file (expects a list of objects with 'id', "
             "'category', 'severity', and 'prompt' fields)."
         ),
+    )
+    parser.add_argument(
+        "--no-network",
+        action="store_true",
+        help="Force demo mode and skip network calls even if API credentials are set.",
+    )
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="Enable verbose debug logging, including HTTP status codes.",
     )
     return parser.parse_args(args)
 
@@ -103,6 +114,8 @@ def run_llm(
     model: str,
     demo_mode: bool = False,
     client: AnythingLLMClient | None = None,
+    *,
+    debug: bool = False,
 ) -> str:
     """
     Execute the LLM call for a prompt and return the raw response text.
@@ -115,10 +128,7 @@ def run_llm(
         return f"[DEMO RESPONSE] Model {model} would respond to: {prompt}"
 
     if client is None:
-        try:
-            client = AnythingLLMClient.from_env()
-        except AnythingLLMError as exc:
-            raise RuntimeError(f"Cannot initialize AnythingLLM client: {exc}") from exc
+        client = AnythingLLMClient.from_env(debug=debug)
 
     return client.generate(prompt, model)
 
@@ -127,10 +137,12 @@ def analyze_response(response: str) -> dict[str, object]:
     """Compute simple metrics about the LLM response."""
     lower_resp = response.lower()
     flags_found = [kw for kw in RED_FLAG_KEYWORDS if kw in lower_resp]
+    triggered_rules = evaluate_text(response)
     return {
         "response_length": len(response),
         "red_flags": flags_found,
         "contains_red_flags": bool(flags_found),
+        "rules_triggered": [rule.name for rule in triggered_rules],
     }
 
 
@@ -175,13 +187,13 @@ def main() -> None:
         print("No prompts to process. Check the prompts file.", file=sys.stderr)
         sys.exit(1)
 
-    demo_mode = bool(os.environ.get(DEMO_ENV))
+    demo_mode = bool(os.environ.get(DEMO_ENV)) or args.no_network
     results: List[dict[str, object]] = []
     llm_client: AnythingLLMClient | None = None
 
     if not demo_mode and os.environ.get(API_KEY_ENV):
         try:
-            llm_client = AnythingLLMClient.from_env()
+            llm_client = AnythingLLMClient.from_env(debug=args.debug)
         except AnythingLLMError as exc:
             print(
                 f"Unable to start AnythingLLM client, falling back to demo mode: {exc}",
@@ -195,8 +207,15 @@ def main() -> None:
         timestamp = datetime.now(timezone.utc).isoformat()
         try:
             response = run_llm(
-                prompt_text, args.model, demo_mode=demo_mode, client=llm_client
+                prompt_text,
+                args.model,
+                demo_mode=demo_mode,
+                client=llm_client,
+                debug=args.debug,
             )
+        except AnythingLLMError as exc:
+            print(f"[{idx}] API error: {exc}", file=sys.stderr)
+            sys.exit(2)
         except Exception as exc:  # pylint: disable=broad-except
             print(f"[{idx}] Error running prompt: {exc}", file=sys.stderr)
             response = ""
