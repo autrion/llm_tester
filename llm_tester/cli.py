@@ -10,13 +10,7 @@ from pathlib import Path
 from typing import Iterable, List
 
 from llm_tester import prompts as prompt_loader
-from llm_tester.client import (
-    API_KEY_ENV,
-    BASE_URL_ENV,
-    WORKSPACE_ENV,
-    AnythingLLMClient,
-    AnythingLLMError,
-)
+from llm_tester.client import BASE_URL_ENV, OllamaClient, OllamaError
 from llm_tester.runner import DEMO_ENV, ResultRecord, run_assessment, serialize_results
 
 
@@ -26,9 +20,7 @@ def parse_args(argv: List[str]) -> argparse.Namespace:
     parser.add_argument("--prompts-file", default="prompts.txt", help="Path to the prompt list file.")
     parser.add_argument("--max-prompts", type=int, default=None, help="Maximum number of prompts to process.")
     parser.add_argument("--output", default="results.csv", help="Output file path (.csv or .jsonl).")
-    parser.add_argument("--api-key", default=None, help="AnythingLLM API key (overrides env).")
-    parser.add_argument("--anythingllm-url", default=None, help="AnythingLLM base URL (overrides env).")
-    parser.add_argument("--workspace", default=None, help="AnythingLLM workspace slug (overrides env).")
+    parser.add_argument("--ollama-url", default=None, help="Ollama base URL (overrides env).")
     parser.add_argument("--demo", action="store_true", help="Run in offline demo mode without network calls.")
     parser.add_argument("--format", choices=["csv", "jsonl"], default=None, help="Force output format.")
     return parser.parse_args(argv)
@@ -60,18 +52,15 @@ def save_output(path: Path, records: Iterable[dict], forced_format: str | None =
         raise ValueError("Output must be .csv or .jsonl or use --format")
 
 
-def build_client(args: argparse.Namespace) -> AnythingLLMClient | None:
-    api_key = args.api_key or os.environ.get(API_KEY_ENV)
-    if args.demo or not api_key:
+def build_client(args: argparse.Namespace) -> OllamaClient | None:
+    if args.demo:
         return None
 
-    base_url = args.anythingllm_url or os.environ.get(BASE_URL_ENV)
-    workspace = args.workspace or os.environ.get(WORKSPACE_ENV)
-    os.environ.setdefault(BASE_URL_ENV, base_url or "")
-    os.environ.setdefault(WORKSPACE_ENV, workspace or "")
-    os.environ.setdefault(API_KEY_ENV, api_key)
+    base_url = args.ollama_url or os.environ.get(BASE_URL_ENV) or None
+    if base_url:
+        os.environ.setdefault(BASE_URL_ENV, base_url)
 
-    return AnythingLLMClient.from_env()
+    return OllamaClient.from_env()
 
 
 def main(argv: List[str] | None = None) -> int:
@@ -88,14 +77,14 @@ def main(argv: List[str] | None = None) -> int:
 
     try:
         client = build_client(args)
-    except AnythingLLMError as exc:
-        print(f"Error configuring AnythingLLM client: {exc}", file=sys.stderr)
+    except OllamaError as exc:
+        print(f"Error configuring Ollama client: {exc}", file=sys.stderr)
         return 2
 
     try:
         results = run_assessment(prompts, args.model, client=client, demo_mode=args.demo)
-    except AnythingLLMError as exc:
-        print(f"AnythingLLM error: {exc}", file=sys.stderr)
+    except OllamaError as exc:
+        print(f"Ollama error: {exc}", file=sys.stderr)
         return 3
     except Exception as exc:  # pragma: no cover - defensive
         print(f"Unexpected error: {exc}", file=sys.stderr)
