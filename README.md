@@ -27,11 +27,12 @@ python -m llm_tester.cli --demo --output results.csv
 
 # Run against Ollama
 export OLLAMA_URL=http://localhost:11434  # optional; defaults to this value
-python -m llm_tester.cli --model llama3 --output results.jsonl --timeout 60
+python -m llm_tester.cli --model llama3 --output results.jsonl --timeout 60 --retries 2
 ```
 
 Use `--prompts-file` to point to a custom line-delimited prompt list and `--max-prompts` to limit how many entries are processed.
 Use `--timeout` to control the HTTP timeout for each Ollama request (defaults to 30 seconds).
+Use `--retries` to automatically retry transient Ollama issues like timeouts or HTTP 5xx responses.
 
 ## Prompt file format
 

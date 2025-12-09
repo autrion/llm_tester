@@ -24,11 +24,14 @@ class OllamaClient:
     base_url: str
     timeout: int = 30
     debug: bool = False
+    retries: int = 0
 
     @classmethod
-    def from_env(cls, *, timeout: int = 30, debug: bool = False) -> "OllamaClient":
+    def from_env(
+        cls, *, timeout: int = 30, debug: bool = False, retries: int = 0
+    ) -> "OllamaClient":
         base_url = os.environ.get(BASE_URL_ENV, DEFAULT_BASE_URL)
-        return cls(base_url=base_url, timeout=timeout, debug=debug)
+        return cls(base_url=base_url, timeout=timeout, debug=debug, retries=retries)
 
     def _build_url(self) -> str:
         return f"{self.base_url.rstrip('/')}/api/generate"
@@ -49,20 +52,48 @@ class OllamaClient:
             method="POST",
         )
 
-        try:
-            with urllib.request.urlopen(request, timeout=self.timeout) as response:  # noqa: S310
-                if self.debug:
-                    print(f"Ollama status: {getattr(response, 'status', 'unknown')}", file=sys.stderr)
-                content = response.read().decode("utf-8")
-        except socket.timeout as exc:  # pragma: no cover - network dependent
-            raise OllamaError(
-                "Ollama request timed out. Increase the timeout or check model performance."
-            ) from exc
-        except urllib.error.HTTPError as exc:  # pragma: no cover - network dependent
-            message = exc.read().decode("utf-8")
-            raise OllamaError(f"Ollama returned HTTP {exc.code}: {message}") from exc
-        except urllib.error.URLError as exc:  # pragma: no cover - network dependent
-            raise OllamaError(f"Could not reach Ollama: {exc.reason}") from exc
+        attempts = max(self.retries, 0) + 1
+        last_error: Exception | None = None
+        for attempt in range(attempts):
+            try:
+                with urllib.request.urlopen(request, timeout=self.timeout) as response:  # noqa: S310
+                    if self.debug:
+                        print(
+                            f"Ollama status: {getattr(response, 'status', 'unknown')}",
+                            file=sys.stderr,
+                        )
+                    content = response.read().decode("utf-8")
+                break
+            except socket.timeout as exc:  # pragma: no cover - network dependent
+                last_error = OllamaError(
+                    "Ollama request timed out. Increase the timeout or check model performance."
+                )
+                if attempt < attempts - 1:
+                    if self.debug:
+                        print(
+                            f"Request timed out (attempt {attempt + 1}/{attempts}), retrying...",
+                            file=sys.stderr,
+                        )
+                    continue
+                raise last_error from exc
+            except urllib.error.HTTPError as exc:  # pragma: no cover - network dependent
+                message = exc.read().decode("utf-8")
+                err = OllamaError(f"Ollama returned HTTP {exc.code}: {message}")
+                if attempt < attempts - 1 and exc.code >= 500:
+                    last_error = err
+                    if self.debug:
+                        print(
+                            f"HTTP {exc.code} from Ollama (attempt {attempt + 1}/{attempts}), retrying...",
+                            file=sys.stderr,
+                        )
+                    continue
+                raise err from exc
+            except urllib.error.URLError as exc:  # pragma: no cover - network dependent
+                err = OllamaError(f"Could not reach Ollama: {exc.reason}")
+                raise err from exc
+
+        if last_error and attempts > 1 and "content" not in locals():
+            raise last_error
 
         try:
             payload = json.loads(content)
