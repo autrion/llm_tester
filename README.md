@@ -8,7 +8,7 @@ LLM Tester is a lightweight command-line utility for running high-risk prompts t
 - **Scope:** Useful for exercising a red-team style workflow skeleton; not a full evaluator.
 
 ## Features
-- Reads prompts from `prompts.txt` (ignores blank lines and lines starting with `#`).
+- Reads prompts from `prompts.json` (structured objects with `id`, `category`, `severity`, and `prompt`).
 - Deterministic demo mode when no API key is set or when `LLM_TESTER_DEMO` is enabled.
 - Sends prompts to AnythingLLM when configured, enabling quick testing of any connected model.
 - Simple response analysis that flags risky keywords (e.g., `hack`, `bypass`, `jailbreak`).
@@ -30,7 +30,7 @@ export LLM_TESTER_DEMO=1
 python main.py --output results.csv
 ```
 
-Use `--max-prompts` to limit how many prompts from `prompts.txt` are processed and `--prompts-file` to point to a custom list. Provide AnythingLLM credentials to get real model outputs instead of demo responses.
+Use `--max-prompts` to limit how many prompts from `prompts.json` are processed and `--prompts-file` to point to a custom list. Provide AnythingLLM credentials to get real model outputs instead of demo responses.
 
 ## Configuration
 - `ANYTHINGLLM_API_KEY`: API key for your AnythingLLM instance.
@@ -62,14 +62,21 @@ Choose an output format with the file extension:
 - `.jsonl`: One JSON object per line
 
 ## Prompts file format
-`prompts.txt` contains one prompt per line. Lines that are blank or begin with `#` are skipped. Customize this file to target scenarios such as prompt injection, system prompt leakage, jailbreaking, or malicious code generation.
+`prompts.json` contains an array of prompt objects with the following fields:
+
+- `id`: Unique identifier for the prompt.
+- `category`: Category such as `prompt_injection`.
+- `severity`: Risk level (e.g., `high`).
+- `prompt`: The actual prompt text to send to the model.
+
+Update this file to target scenarios such as prompt injection, system prompt leakage, jailbreaking, or malicious code generation.
 
 ## Project structure
 ```
 llm_tester/
 ├── main.py      # CLI entry point and analysis logic
 ├── anythingllm_client.py  # Minimal AnythingLLM HTTP client
-├── prompts.txt  # Default high-risk prompt list
+├── prompts.json  # Default high-risk prompt list
 └── README.md    # Project documentation
 ```
 
