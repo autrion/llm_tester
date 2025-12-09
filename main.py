@@ -46,27 +46,54 @@ def parse_args(args: Sequence[str]) -> argparse.Namespace:
     )
     parser.add_argument(
         "--prompts-file",
-        default="prompts.txt",
-        help="Path to the prompts file (one prompt per line, '#' for comments).",
+        default="prompts.json",
+        help=(
+            "Path to the prompts JSON file (expects a list of objects with 'id', "
+            "'category', 'severity', and 'prompt' fields)."
+        ),
     )
     return parser.parse_args(args)
 
 
-def load_prompts(file_path: str, max_prompts: int | None = None) -> List[str]:
-    """Load prompts from a text file, skipping empty lines and comments."""
+def load_prompts(file_path: str, max_prompts: int | None = None) -> List[dict[str, str]]:
+    """Load prompts from a JSON file with structured metadata."""
     path = Path(file_path)
     if not path.exists():
         raise FileNotFoundError(f"Prompt file not found: {path}")
 
-    prompts: List[str] = []
     with path.open("r", encoding="utf-8") as file:
-        for line in file:
-            stripped = line.strip()
-            if not stripped or stripped.startswith("#"):
-                continue
-            prompts.append(stripped)
-            if max_prompts is not None and len(prompts) >= max_prompts:
-                break
+        data = json.load(file)
+
+    if not isinstance(data, list):
+        raise ValueError("Prompt file must contain a JSON array of prompt objects.")
+
+    prompts: List[dict[str, str]] = []
+    required_fields = {"id", "category", "severity", "prompt"}
+    for index, entry in enumerate(data, start=1):
+        if not isinstance(entry, dict):
+            raise ValueError(f"Entry {index} in prompt file is not an object: {entry!r}")
+
+        missing_fields = sorted(required_fields - set(entry))
+        if missing_fields:
+            raise ValueError(
+                f"Entry {index} is missing required fields: {', '.join(missing_fields)}"
+            )
+
+        prompt_text = str(entry["prompt"]).strip()
+        if not prompt_text:
+            raise ValueError(f"Entry {index} has an empty prompt value.")
+
+        prompts.append(
+            {
+                "id": str(entry["id"]),
+                "category": str(entry["category"]),
+                "severity": str(entry["severity"]),
+                "prompt": prompt_text,
+            }
+        )
+
+        if max_prompts is not None and len(prompts) >= max_prompts:
+            break
 
     return prompts
 
@@ -140,7 +167,7 @@ def main() -> None:
     args = parse_args(sys.argv[1:])
     try:
         prompts = load_prompts(args.prompts_file, args.max_prompts)
-    except FileNotFoundError as exc:
+    except (FileNotFoundError, ValueError) as exc:
         print(f"Error: {exc}", file=sys.stderr)
         sys.exit(1)
 
@@ -163,10 +190,13 @@ def main() -> None:
             demo_mode = True
 
     print(f"Running {len(prompts)} prompts against model '{args.model}'.")
-    for idx, prompt in enumerate(prompts, start=1):
+    for idx, prompt_entry in enumerate(prompts, start=1):
+        prompt_text = prompt_entry["prompt"]
         timestamp = datetime.now(timezone.utc).isoformat()
         try:
-            response = run_llm(prompt, args.model, demo_mode=demo_mode, client=llm_client)
+            response = run_llm(
+                prompt_text, args.model, demo_mode=demo_mode, client=llm_client
+            )
         except Exception as exc:  # pylint: disable=broad-except
             print(f"[{idx}] Error running prompt: {exc}", file=sys.stderr)
             response = ""
@@ -177,7 +207,10 @@ def main() -> None:
         metrics = analyze_response(response) if response else {}
         record = {
             "timestamp": timestamp,
-            "prompt": prompt,
+            "prompt_id": prompt_entry["id"],
+            "prompt_category": prompt_entry["category"],
+            "prompt_severity": prompt_entry["severity"],
+            "prompt": prompt_text,
             "model": args.model,
             "response": response,
             **metrics,
