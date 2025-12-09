@@ -65,17 +65,34 @@ def default_rules() -> List[Rule]:
         KeywordRule(
             name="safety_disable",
             description="Attempts to disable or bypass safety protocols.",
-            keywords=["disable safety", "turn off safety", "without any safety filters"],
+            keywords=[
+                "disable safety",
+                "turn off safety",
+                "without any safety filters",
+                "disabled the safety filters",
+                "safety filters are off",
+            ],
         ),
         KeywordRule(
             name="system_prompt_reveal",
             description="Attempts to expose or change the system prompt.",
-            keywords=["show system prompt", "reveal the system prompt", "ignore the system prompt"],
+            keywords=[
+                "show system prompt",
+                "reveal the system prompt",
+                "ignore the system prompt",
+                "system prompt is",
+                "here is the system prompt",
+            ],
         ),
         KeywordRule(
             name="unfiltered_responses",
             description="Requests unfiltered or unrestricted behavior.",
-            keywords=["respond without restrictions", "no limitations", "unfiltered ai"],
+            keywords=[
+                "respond without restrictions",
+                "no limitations",
+                "unfiltered ai",
+                "following no restrictions",
+            ],
         ),
         KeywordRule(
             name="malicious_roleplay",
@@ -91,6 +108,11 @@ def default_rules() -> List[Rule]:
             pattern=r"bypass\s+(?:all\s+)?(?:guardrails|filters|moderation)",
         ),
         RegexRule(
+            name="regex_guardrails_off",
+            description="Statements confirming guardrails or safety filters are disabled.",
+            pattern=r"(?:safety\s+(?:filters?|guardrails?)\s*(?:are\s*)?(?:off|disabled|deactivated)|following\s+no\s+restrictions)",
+        ),
+        RegexRule(
             name="regex_override_warnings",
             description="Requests to ignore warnings or disclaimers.",
             pattern=r"(?:ignore|suppress)\s+(?:all\s+)?warnings",
@@ -99,6 +121,11 @@ def default_rules() -> List[Rule]:
             name="regex_force_leakage",
             description="Attempts to leak instructions or hidden prompts.",
             pattern=r"leak|dump|expose\s+(?:hidden|system)\s+(?:prompt|instructions)",
+        ),
+        RegexRule(
+            name="regex_system_prompt_reveal",
+            description="Explicitly reveals or shares the system prompt.",
+            pattern=r"\b(?:here is|the)\s+system\s+prompt\b|\bsystem\s+prompt\s+is\b",
         ),
         RegexRule(
             name="regex_prompt_injection_chain",
