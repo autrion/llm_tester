@@ -30,6 +30,11 @@ def parse_args(argv: List[str]) -> argparse.Namespace:
     )
     parser.add_argument("--demo", action="store_true", help="Run in offline demo mode without network calls.")
     parser.add_argument("--format", choices=["csv", "jsonl"], default=None, help="Force output format.")
+    parser.add_argument(
+        "--system-prompt",
+        default=None,
+        help="System prompt to inject (inline text or @file path).",
+    )
     return parser.parse_args(argv)
 
 
@@ -70,6 +75,18 @@ def build_client(args: argparse.Namespace) -> OllamaClient | None:
     return OllamaClient.from_env(timeout=args.timeout, retries=args.retries)
 
 
+def load_system_prompt(value: str | None) -> str | None:
+    """Load system prompt from inline text or file reference (@path)."""
+    if value is None:
+        return None
+    if value.startswith("@"):
+        file_path = Path(value[1:])
+        if not file_path.exists():
+            raise FileNotFoundError(f"System prompt file not found: {file_path}")
+        return file_path.read_text(encoding="utf-8").strip()
+    return value
+
+
 def main(argv: List[str] | None = None) -> int:
     args = parse_args(argv or sys.argv[1:])
     try:
@@ -83,13 +100,19 @@ def main(argv: List[str] | None = None) -> int:
         return 1
 
     try:
+        system_prompt = load_system_prompt(args.system_prompt)
+    except (FileNotFoundError, ValueError) as exc:
+        print(f"Error loading system prompt: {exc}", file=sys.stderr)
+        return 1
+
+    try:
         client = build_client(args)
     except OllamaError as exc:
         print(f"Error configuring Ollama client: {exc}", file=sys.stderr)
         return 2
 
     try:
-        results = run_assessment(prompts, args.model, client=client, demo_mode=args.demo)
+        results = run_assessment(prompts, args.model, client=client, demo_mode=args.demo, system_prompt=system_prompt)
     except OllamaError as exc:
         print(f"Ollama error: {exc}", file=sys.stderr)
         return 3

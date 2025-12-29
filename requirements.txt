@@ -1,0 +1,5 @@
+# LLM Tester - AI Security Toolkit
+# Python 3.11+ required
+
+# Testing dependencies
+pytest>=7.0.0

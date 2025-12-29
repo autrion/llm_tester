@@ -34,13 +34,14 @@ def run_prompt(
     analyze_prompt: bool = False,
     rules: Sequence[Rule] | None = None,
     prompt_rules: Sequence[Rule] | None = None,
+    system_prompt: str | None = None,
 ) -> ResultRecord:
     if demo_mode:
         response = f"[DEMO RESPONSE] Model {model} would respond to: {prompt.text}"
     else:
         if client is None:
             raise OllamaError("LLM client is not configured")
-        response = client.generate(prompt.text, model)
+        response = client.generate(prompt.text, model, system=system_prompt)
 
     analysis = analyze_response(
         response,
@@ -69,6 +70,7 @@ def run_assessment(
     analyze_prompt: bool = False,
     rules: Sequence[Rule] | None = None,
     prompt_rules: Sequence[Rule] | None = None,
+    system_prompt: str | None = None,
 ) -> List[ResultRecord]:
     results: List[ResultRecord] = []
     effective_demo = bool(os.environ.get(DEMO_ENV)) if demo_mode is None else demo_mode
@@ -82,6 +84,7 @@ def run_assessment(
             analyze_prompt=analyze_prompt,
             rules=rules,
             prompt_rules=prompt_rules,
+            system_prompt=system_prompt,
         )
         results.append(record)
     return results
