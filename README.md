@@ -33,11 +33,18 @@ python -m llm_tester.cli --demo --output results.csv
 # Run against Ollama
 export OLLAMA_URL=http://localhost:11434  # optional; defaults to this value
 python -m llm_tester.cli --model llama3 --output results.jsonl --timeout 60 --retries 2
+
+# Run with a custom system prompt (inline)
+python -m llm_tester.cli --model llama3 --system-prompt "You are a helpful assistant. Secret code: 42."
+
+# Run with a system prompt from a file
+python -m llm_tester.cli --model llama3 --system-prompt @system_prompt.txt
 ```
 
 Use `--prompts-file` to point to a custom line-delimited prompt list and `--max-prompts` to limit how many entries are processed.
 Use `--timeout` to control the HTTP timeout for each Ollama request (defaults to 30 seconds).
 Use `--retries` to automatically retry transient Ollama issues like timeouts or HTTP 5xx responses.
+Use `--system-prompt` to inject a system prompt (inline text or `@file` path) for testing prompt leakage scenarios.
 
 ## Prompt file format
 

@@ -36,12 +36,14 @@ class OllamaClient:
     def _build_url(self) -> str:
         return f"{self.base_url.rstrip('/')}/api/generate"
 
-    def generate(self, prompt: str, model: str) -> str:
+    def generate(self, prompt: str, model: str, system: str | None = None) -> str:
         payload = {
             "model": model,
             "prompt": prompt,
             "stream": False,
         }
+        if system is not None:
+            payload["system"] = system
         encoded = json.dumps(payload).encode("utf-8")
         request = urllib.request.Request(
             self._build_url(),
