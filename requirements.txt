@@ -1,5 +1,8 @@
 # LLM Tester - AI Security Toolkit
 # Python 3.11+ required
 
+# Core dependencies
+tqdm>=4.65.0  # Progress bars
+
 # Testing dependencies
 pytest>=7.0.0
