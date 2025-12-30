@@ -182,18 +182,18 @@ Vulnerabilities detected: 42/150 prompts triggered rules
 
 ## 🐞 Known Limitations
 
-**v2.0 focuses on breadth; these will be addressed in v2.1+:**
+**v0.2 focuses on breadth; these will be addressed in v0.3+:**
 
 1. **ML Model Size**: Character n-grams are simpler than transformer embeddings (trade-off for zero dependencies)
-2. **Response Analysis Only**: Rules evaluate responses, not prompt-response pairs (will be improved in v2.1)
-3. **No Streaming Support**: Large model responses aren't streamed yet (planned for v2.2)
-4. **Basic Retry Logic**: Exponential backoff is simple; advanced strategies coming in v2.3
-5. **Single System Prompt**: Can't test multiple system prompts in one run (will be added in v2.1)
-6. **No Custom Rule UI**: Adding rules requires code editing (web UI planned for v3.0)
+2. **Response Analysis Only**: Rules evaluate responses, not prompt-response pairs (will be improved in v0.3)
+3. **No Streaming Support**: Large model responses aren't streamed yet (planned for v0.4)
+4. **Basic Retry Logic**: Exponential backoff is simple; advanced strategies coming in v0.5
+5. **Single System Prompt**: Can't test multiple system prompts in one run (will be added in v0.3)
+6. **No Custom Rule UI**: Adding rules requires code editing (web UI planned for v1.0)
 
 ---
 
-## 🚀 Planned for v2.1
+## 🚀 Planned for v0.3
 
 **Next quarterly release (Q1 2025):**
 
@@ -213,9 +213,9 @@ Vulnerabilities detected: 42/150 prompts triggered rules
 **Major Additions:**
 - Add comprehensive roadmap to become industry-standard LLM red-teaming tool by @autrion in #14
 - Implement multi-provider architecture and expand attack vectors massively by @autrion in #15
-- Major v2.0 release: Complete implementation of industry-standard LLM red-teaming features by @autrion in #16
-- Add ML-based detection and async parallel execution - Complete v2.0 feature set by @autrion in #17
-- Add comprehensive test report demonstrating v2.0 functionality by @autrion in #18
+- Major v0.2 release: Complete implementation of industry-standard LLM red-teaming features by @autrion in #16
+- Add ML-based detection and async parallel execution - Complete v0.2 feature set by @autrion in #17
+- Add comprehensive test report demonstrating v0.2 functionality by @autrion in #18
 - Add donation section with crypto addresses and Buy Me a Coffee link by @autrion in #19
 
 **New Files:**
@@ -231,7 +231,7 @@ Vulnerabilities detected: 42/150 prompts triggered rules
 - `llm_tester/cli.py` - Multi-provider support, async execution, concurrency control
 - `llm_tester/rules.py` - Expanded from 12 to 60+ rules + ML detection
 - `llm_tester/runner.py` - Cost tracking, provider abstraction support
-- `README.md` - Complete rewrite with v2.0 features and comparison table
+- `README.md` - Complete rewrite with v0.2 features and comparison table
 
 **Statistics:**
 - **25 files changed**: +5,575 lines, -117 lines
@@ -262,7 +262,7 @@ If you find LLM Tester useful, consider supporting its development:
 
 ## 📚 Resources
 
-- **Full Changelog**: https://github.com/autrion/llm_tester/compare/v0.1...v2.0
+- **Full Changelog**: https://github.com/autrion/llm_tester/compare/v0.1...v0.2
 - **Documentation**: [README.md](README.md)
 - **Roadmap**: [ROADMAP.md](ROADMAP.md)
 - **Issues**: [GitHub Issues](https://github.com/autrion/llm_tester/issues)
@@ -272,4 +272,4 @@ If you find LLM Tester useful, consider supporting its development:
 
 **Made with 🔴 for LLM Security**
 
-*LLM Tester v2.0 - The industry-standard toolkit for LLM red-teaming and security assessment.*
+*LLM Tester v0.2 - The industry-standard toolkit for LLM red-teaming and security assessment.*
