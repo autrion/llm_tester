@@ -338,6 +338,21 @@ The tests run entirely offline using dummy data and mocks. **37 tests** covering
 - ✨ System prompt injection feature
 - 🐛 Improved error handling
 - 📚 Comprehensive test coverage (37 tests)
+## 💝 Support This Project
+
+If you find LLM Tester useful, consider supporting its development:
+
+**Crypto:**
+- **Bitcoin**: `bc1qcexlm8hc4lh86sg5pmlq26hzu075q4y9jm88zh`
+- **Ethereum**: `0x300D3654D7D87ef3Dbe56B7eF0AF570C39B77580`
+- **Solana**: `26EdJTMECZm3rqxhFHaL48zBtJRvAjn9CF5EFpB1DV5K`
+
+**Other:**
+- ☕ [Buy Me a Coffee](https://buymeacoffee.com/autrion)
+
+Your support helps maintain and improve this tool for the security community!
+
+---
 
 ### v1.0
 - Initial release with basic functionality
