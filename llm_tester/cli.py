@@ -13,7 +13,9 @@ from llm_tester import prompts as prompt_loader
 from llm_tester.async_runner import run_assessment_sync_wrapper
 from llm_tester.client import BASE_URL_ENV, OllamaClient, OllamaError
 from llm_tester.logging_config import setup_logging
-from llm_tester.reporting import generate_html_report
+from llm_tester.providers import ProviderError
+from llm_tester.providers.factory import create_provider
+from llm_tester.reporting import generate_html_report, generate_sarif_report
 from llm_tester.rule_loader import load_rules_from_json
 from llm_tester.runner import DEMO_ENV, ResultRecord, run_assessment, serialize_results
 
@@ -76,6 +78,11 @@ def parse_args(argv: List[str]) -> argparse.Namespace:
         "--log-file",
         default=None,
         help="Path to log file (enables file logging).",
+    )
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="Enable debug mode for provider clients.",
     )
     return parser.parse_args(argv)
 
