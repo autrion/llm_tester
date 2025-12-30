@@ -58,6 +58,49 @@ pip install -r requirements.txt
 
 ## Quick start
 
+### Test ALL Attack Vectors (203 attacks)
+
+```bash
+# Demo mode - instant results, no API calls
+python -m llm_tester.cli \
+  --prompts-file llm_tester/prompts_extended.txt \
+  --demo \
+  --html-report results/all_attacks.html \
+  --workers 4
+
+# Against OpenAI GPT-4o
+export OPENAI_API_KEY="your-key"
+python -m llm_tester.cli \
+  --provider openai \
+  --model gpt-4o-mini \
+  --prompts-file llm_tester/prompts_extended.txt \
+  --html-report results/gpt4o_report.html \
+  --workers 10
+```
+
+### ML-Based Detection (Always Active!)
+
+**ML detection is automatically enabled** - no configuration needed!
+
+The `ml_semantic_jailbreak` rule uses semantic similarity to catch jailbreak variants that bypass traditional regex rules:
+
+```bash
+# Verify ML detection is active
+python3 -c "from llm_tester.rules import ML_AVAILABLE; \
+  print('ML Detection:', 'ENABLED ✅' if ML_AVAILABLE else 'DISABLED ❌')"
+
+# See ML detection in action (debug mode)
+python -m llm_tester.cli \
+  --prompts-file llm_tester/prompt_library/jailbreaks.txt \
+  --demo \
+  --log-level DEBUG \
+  --output results.csv
+```
+
+**How it works:**
+- Traditional Rule: `"ignore previous instructions"` → exact match
+- ML Detection: `"disregard prior directives"` → semantic similarity 0.78 → DETECTED ✅
+
 ### Basic Usage
 
 ```bash

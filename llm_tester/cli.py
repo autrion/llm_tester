@@ -21,7 +21,27 @@ from llm_tester.runner import DEMO_ENV, ResultRecord, run_assessment, serialize_
 
 
 def parse_args(argv: List[str]) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Run security prompts against an LLM endpoint.")
+    parser = argparse.ArgumentParser(
+        description="Run security prompts against an LLM endpoint.",
+        epilog="""
+Examples:
+  # Test ALL attack vectors (203 attacks) in demo mode
+  python -m llm_tester.cli --prompts-file llm_tester/prompts_extended.txt --demo --html-report results.html
+
+  # Test against OpenAI GPT-4o with ML detection (always active)
+  export OPENAI_API_KEY="your-key"
+  python -m llm_tester.cli --provider openai --model gpt-4o-mini --prompts-file llm_tester/prompts_extended.txt --workers 10
+
+  # Verify ML detection is enabled
+  python3 -c "from llm_tester.rules import ML_AVAILABLE; print('ML:', 'ENABLED' if ML_AVAILABLE else 'DISABLED')"
+
+Detection Rules:
+  - 64 total rules (19 KeywordRule, 43 RegexRule, 2 MLRule)
+  - ML-based detection is ALWAYS ACTIVE (no flag needed)
+  - ML rule 'ml_semantic_jailbreak' catches novel jailbreak variants using semantic similarity
+        """,
+        formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     parser.add_argument(
         "--provider",
         choices=["openai", "anthropic", "google", "azure", "ollama"],
