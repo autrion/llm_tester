@@ -390,7 +390,7 @@ def generate_sarif_report(results: List[ResultRecord], output_path: Path) -> Non
             "tool": {
                 "driver": {
                     "name": "LLM Tester",
-                    "version": "1.0.0",
+                    "version": "0.2.0",
                     "informationUri": "https://github.com/autrion/llm_tester",
                     "rules": [
                         {

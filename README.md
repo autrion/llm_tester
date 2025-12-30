@@ -10,7 +10,7 @@
 
 **LLM Tester** is a comprehensive security testing toolkit for Large Language Models. Think **NMAP for LLMs** - the industry-standard tool for red-teaming, vulnerability assessment, and security evaluation of AI systems.
 
-## 🚀 What's New in v2.0
+## 🚀 What's New in v0.2
 
 - ✅ **Multi-Provider Support**: OpenAI, Anthropic, Google (Gemini), Azure OpenAI, Ollama
 - ✅ **150+ Attack Vectors**: Comprehensive prompt injection, jailbreaks, data exfiltration, encoding attacks

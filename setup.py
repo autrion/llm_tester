@@ -6,7 +6,7 @@ with open("README.md", encoding="utf-8") as f:
 
 setup(
     name="llm-tester",
-    version="2.0.0",
+    version="0.2.0",
     author="autrion",
     description="Industry-standard LLM security testing toolkit - NMAP for LLMs",
     long_description=long_description,

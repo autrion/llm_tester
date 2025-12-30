@@ -1,11 +1,11 @@
-# Release Notes – Version 2.0
+# Release Notes – Version 0.2
 
 **Date:** 2024-12-30
 **Status:** Production Release
 
 This is a **major milestone release** that transforms LLM Tester from a simple toolkit into an **industry-standard security platform** comparable to NMAP/Metasploit for LLM red-teaming.
 
-Version 2.0 introduces multi-provider support, ML-based detection, async parallel execution, professional reporting, and comprehensive CI/CD integration—positioning LLM Tester as the **de facto standard** for LLM security testing.
+Version 0.2 introduces multi-provider support, ML-based detection, async parallel execution, professional reporting, and comprehensive CI/CD integration—positioning LLM Tester as the **de facto standard** for LLM security testing.
 
 ---
 
