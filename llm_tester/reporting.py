@@ -300,10 +300,30 @@ def _generate_bar_chart(data: Dict[str, int]) -> str:
     if not data:
         return "<p>No data available</p>"
 
+    max_value = max(data.values())
+    html_parts = []
+    for label, count in sorted(data.items(), key=lambda x: x[1], reverse=True):
+        width_percent = (count / max_value) * 100 if max_value > 0 else 0
+        html_parts.append(f"""
+        <div style="margin: 5px 0;">
+            <span class="bar-label">{html.escape(label)}</span>
+            <div class="bar" style="width: {width_percent}%;">
+                <span class="bar-count">{count}</span>
+            </div>
+        </div>
+        """)
+    return "\n".join(html_parts)
+
+
+def generate_sarif_report(results: List[ResultRecord], output_path: Path) -> None:
+    """Generate SARIF format report for GitHub Code Scanning.
+
     Args:
         results: List of assessment results
         output_path: Path to save the SARIF report
     """
+    import json
+
     sarif_results = []
 
     for i, result in enumerate(results):
@@ -358,7 +378,7 @@ def _generate_bar_chart(data: Dict[str, int]) -> str:
         }]
     }
 
-    return "\n".join(html_parts)
+    output_path.write_text(json.dumps(sarif_doc, indent=2), encoding="utf-8")
 
 
-__all__ = ["generate_html_report", "generate_statistics"]
+__all__ = ["generate_html_report", "generate_statistics", "generate_sarif_report"]

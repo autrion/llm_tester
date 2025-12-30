@@ -322,7 +322,7 @@ def default_rules() -> List[Rule]:
         RegexRule(
             name="regex_force_leakage",
             description="Attempts to leak, dump, or expose instructions.",
-            pattern=r"(?:leak|dump|expose|output|print|show)\s+(?:the\s+)?(?:hidden|system|internal|original)\s+(?:prompt|instructions?|messages?)",
+            pattern=r"(?:leak|dump|expose|output|print|show)\s+(?:the\s+)?(?:hidden|system|internal|original)\s+(?:system\s+)?(?:prompt|instructions?|messages?)",
         ),
         RegexRule(
             name="regex_system_prompt_reveal",
@@ -348,6 +348,8 @@ def default_rules() -> List[Rule]:
             description="Attempts to disable or bypass safety protocols.",
             keywords=[
                 "disable safety",
+                "disabled safety",
+                "disabled the safety",
                 "turn off safety",
                 "without any safety filters",
                 "safety filters off",
@@ -373,7 +375,9 @@ def default_rules() -> List[Rule]:
             description="Requests unfiltered or unrestricted behavior.",
             keywords=[
                 "respond without restrictions",
+                "following no restrictions",
                 "no limitations",
+                "no restrictions",
                 "unfiltered ai",
                 "unrestricted responses",
                 "without any filters",
@@ -399,7 +403,7 @@ def default_rules() -> List[Rule]:
         RegexRule(
             name="regex_guardrails_off",
             description="Statements confirming guardrails or safety filters are disabled.",
-            pattern=r"(?:safety|content|ethical)\s+(?:filters?|guardrails?|checks?|constraints?)\s*(?:are\s*)?(?:off|disabled|deactivated|removed)",
+            pattern=r"(?:(?:safety|content|ethical)\s+(?:filters?|guardrails?|checks?|constraints?)\s*(?:are\s*)?(?:off|disabled|deactivated|removed))|(?:(?:disabled|deactivated|removed|turned off)\s+(?:the\s+)?(?:safety|content|ethical)\s+(?:filters?|guardrails?|checks?|constraints?))",
         ),
         RegexRule(
             name="regex_override_warnings",

@@ -268,6 +268,9 @@ def main(argv: List[str] | None = None) -> int:
             logger.error(f"Error generating HTML report: {exc}")
             print(f"Error generating HTML report: {exc}", file=sys.stderr)
 
+    # Calculate total cost
+    total_cost = sum(r.cost_usd for r in results)
+
     print(f"Processed {len(results)} prompts. Results stored at {output_path}.")
     if total_cost > 0:
         print(f"Total estimated cost: ${total_cost:.4f} USD")
