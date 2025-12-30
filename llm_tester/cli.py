@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Iterable, List
 
 from llm_tester import prompts as prompt_loader
+from llm_tester.async_runner import run_assessment_sync_wrapper
 from llm_tester.client import BASE_URL_ENV, OllamaClient, OllamaError
 from llm_tester.logging_config import setup_logging
 from llm_tester.reporting import generate_html_report
@@ -19,20 +20,26 @@ from llm_tester.runner import DEMO_ENV, ResultRecord, run_assessment, serialize_
 
 def parse_args(argv: List[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run security prompts against an LLM endpoint.")
+    parser.add_argument(
+        "--provider",
+        choices=["openai", "anthropic", "google", "azure", "ollama"],
+        default="ollama",
+        help="LLM provider to use (default: ollama).",
+    )
     parser.add_argument("--model", default="gpt-4o-mini", help="Target model identifier.")
     parser.add_argument("--prompts-file", default="prompts.txt", help="Path to the prompt list file.")
     parser.add_argument("--max-prompts", type=int, default=None, help="Maximum number of prompts to process.")
     parser.add_argument("--output", default="results.csv", help="Output file path (.csv or .jsonl).")
-    parser.add_argument("--ollama-url", default=None, help="Ollama base URL (overrides env).")
-    parser.add_argument("--timeout", type=int, default=30, help="Request timeout in seconds for the Ollama client.")
+    parser.add_argument("--ollama-url", default=None, help="Ollama base URL (overrides env). Only for --provider=ollama.")
+    parser.add_argument("--timeout", type=int, default=30, help="Request timeout in seconds.")
     parser.add_argument(
         "--retries",
         type=int,
         default=0,
-        help="Number of retries for transient Ollama errors (timeouts, HTTP 5xx).",
+        help="Number of retries for transient errors (timeouts, HTTP 5xx).",
     )
     parser.add_argument("--demo", action="store_true", help="Run in offline demo mode without network calls.")
-    parser.add_argument("--format", choices=["csv", "jsonl"], default=None, help="Force output format.")
+    parser.add_argument("--format", choices=["csv", "jsonl", "html", "sarif"], default=None, help="Output format (csv, jsonl, html, sarif).")
     parser.add_argument(
         "--system-prompt",
         default=None,
@@ -89,25 +96,66 @@ def _write_jsonl(output_path: Path, records: Iterable[dict]) -> None:
             handle.write(json.dumps(row, ensure_ascii=False) + "\n")
 
 
-def save_output(path: Path, records: Iterable[dict], forced_format: str | None = None) -> None:
+def save_output(
+    path: Path,
+    records: Iterable[dict] | List[ResultRecord],
+    forced_format: str | None = None,
+) -> None:
+    """Save output in various formats."""
     suffix = forced_format or path.suffix.lstrip(".").lower()
-    if suffix == "csv":
-        _write_csv(path, records)
-    elif suffix == "jsonl":
-        _write_jsonl(path, records)
+
+    # Convert ResultRecord objects to dicts if needed
+    if records and isinstance(list(records)[0], ResultRecord):
+        result_objects = list(records)
+        dict_records = serialize_results(result_objects)
     else:
-        raise ValueError("Output must be .csv or .jsonl or use --format")
+        dict_records = list(records)
+        result_objects = None
+
+    if suffix == "csv":
+        _write_csv(path, dict_records)
+    elif suffix == "jsonl":
+        _write_jsonl(path, dict_records)
+    elif suffix == "html":
+        if not result_objects:
+            raise ValueError("HTML format requires ResultRecord objects")
+        generate_html_report(result_objects, path)
+    elif suffix == "sarif":
+        if not result_objects:
+            raise ValueError("SARIF format requires ResultRecord objects")
+        generate_sarif_report(result_objects, path)
+    else:
+        raise ValueError("Output format must be csv, jsonl, html, or sarif (use --format)")
 
 
-def build_client(args: argparse.Namespace) -> OllamaClient | None:
+def build_client(args: argparse.Namespace) -> OllamaClient | LLMProvider | None:
+    """Build a provider client based on CLI arguments."""
     if args.demo:
         return None
 
-    base_url = args.ollama_url or os.environ.get(BASE_URL_ENV) or None
-    if base_url:
-        os.environ.setdefault(BASE_URL_ENV, base_url)
+    try:
+        # Use the new provider system
+        if args.provider == "ollama":
+            # Special handling for Ollama to support legacy --ollama-url
+            base_url = args.ollama_url or os.environ.get(BASE_URL_ENV)
+            from llm_tester.providers.ollama import OllamaProvider
 
-    return OllamaClient.from_env(timeout=args.timeout, retries=args.retries)
+            return OllamaProvider.from_env(
+                timeout=args.timeout,
+                debug=args.debug,
+                retries=args.retries,
+                base_url=base_url,
+            )
+        else:
+            # Use factory for other providers
+            return create_provider(
+                args.provider,
+                timeout=args.timeout,
+                debug=args.debug,
+                retries=args.retries,
+            )
+    except ProviderError as exc:
+        raise ProviderError(f"Failed to initialize {args.provider} provider: {exc}") from exc
 
 
 def load_system_prompt(value: str | None) -> str | None:
@@ -221,6 +269,14 @@ def main(argv: List[str] | None = None) -> int:
             print(f"Error generating HTML report: {exc}", file=sys.stderr)
 
     print(f"Processed {len(results)} prompts. Results stored at {output_path}.")
+    if total_cost > 0:
+        print(f"Total estimated cost: ${total_cost:.4f} USD")
+
+    # Count triggered rules
+    total_triggered = sum(1 for r in results if r.triggered_rules)
+    if total_triggered > 0:
+        print(f"Vulnerabilities detected: {total_triggered}/{len(results)} prompts triggered rules")
+
     return 0
 
 
