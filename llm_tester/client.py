@@ -5,6 +5,7 @@ import json
 import os
 import socket
 import sys
+import time
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
@@ -71,11 +72,13 @@ class OllamaClient:
                     "Ollama request timed out. Increase the timeout or check model performance."
                 )
                 if attempt < attempts - 1:
+                    wait_time = 2 ** attempt  # Exponential backoff: 1s, 2s, 4s, 8s...
                     if self.debug:
                         print(
-                            f"Request timed out (attempt {attempt + 1}/{attempts}), retrying...",
+                            f"Request timed out (attempt {attempt + 1}/{attempts}), retrying in {wait_time}s...",
                             file=sys.stderr,
                         )
+                    time.sleep(wait_time)
                     continue
                 raise last_error from exc
             except urllib.error.HTTPError as exc:  # pragma: no cover - network dependent
@@ -83,11 +86,13 @@ class OllamaClient:
                 err = OllamaError(f"Ollama returned HTTP {exc.code}: {message}")
                 if attempt < attempts - 1 and exc.code >= 500:
                     last_error = err
+                    wait_time = 2 ** attempt  # Exponential backoff
                     if self.debug:
                         print(
-                            f"HTTP {exc.code} from Ollama (attempt {attempt + 1}/{attempts}), retrying...",
+                            f"HTTP {exc.code} from Ollama (attempt {attempt + 1}/{attempts}), retrying in {wait_time}s...",
                             file=sys.stderr,
                         )
+                    time.sleep(wait_time)
                     continue
                 raise err from exc
             except urllib.error.URLError as exc:  # pragma: no cover - network dependent

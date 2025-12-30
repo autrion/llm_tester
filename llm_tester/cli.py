@@ -12,9 +12,9 @@ from typing import Iterable, List
 from llm_tester import prompts as prompt_loader
 from llm_tester.async_runner import run_assessment_sync_wrapper
 from llm_tester.client import BASE_URL_ENV, OllamaClient, OllamaError
-from llm_tester.providers import LLMProvider, ProviderError
-from llm_tester.providers.factory import create_provider, list_providers
-from llm_tester.reporting import generate_html_report, generate_sarif_report
+from llm_tester.logging_config import setup_logging
+from llm_tester.reporting import generate_html_report
+from llm_tester.rule_loader import load_rules_from_json
 from llm_tester.runner import DEMO_ENV, ResultRecord, run_assessment, serialize_results
 
 
@@ -46,20 +46,36 @@ def parse_args(argv: List[str]) -> argparse.Namespace:
         help="System prompt to inject (inline text or @file path).",
     )
     parser.add_argument(
-        "--debug",
-        action="store_true",
-        help="Enable debug output for provider requests.",
-    )
-    parser.add_argument(
-        "--concurrency",
+        "--workers",
         type=int,
-        default=10,
-        help="Maximum concurrent requests for async execution (default: 10). Set to 1 for sequential.",
+        default=1,
+        help="Number of parallel workers for processing prompts (default: 1).",
     )
     parser.add_argument(
-        "--no-async",
+        "--no-progress",
         action="store_true",
-        help="Disable async execution (use synchronous runner).",
+        help="Disable progress bar display.",
+    )
+    parser.add_argument(
+        "--rules-file",
+        default=None,
+        help="Path to custom rules JSON file.",
+    )
+    parser.add_argument(
+        "--html-report",
+        default=None,
+        help="Generate HTML report at specified path.",
+    )
+    parser.add_argument(
+        "--log-level",
+        default="INFO",
+        choices=["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
+        help="Logging level (default: INFO).",
+    )
+    parser.add_argument(
+        "--log-file",
+        default=None,
+        help="Path to log file (enables file logging).",
     )
     return parser.parse_args(argv)
 
@@ -156,63 +172,102 @@ def load_system_prompt(value: str | None) -> str | None:
 
 def main(argv: List[str] | None = None) -> int:
     args = parse_args(argv or sys.argv[1:])
+
+    # Setup logging
+    logger = setup_logging(
+        level=args.log_level,
+        log_file=args.log_file,
+        enable_file_logging=bool(args.log_file),
+    )
+
+    logger.info("Starting LLM Tester assessment")
+
     try:
         prompts = prompt_loader.load_prompts(args.prompts_file, args.max_prompts)
+        logger.info(f"Loaded {len(prompts)} prompts from {args.prompts_file}")
     except (FileNotFoundError, ValueError) as exc:
+        logger.error(f"Error loading prompts: {exc}")
         print(f"Error loading prompts: {exc}", file=sys.stderr)
         return 1
 
     if not prompts:
+        logger.error("No prompts found in file")
         print("No prompts found in file.", file=sys.stderr)
         return 1
 
     try:
         system_prompt = load_system_prompt(args.system_prompt)
+        if system_prompt:
+            logger.info("Loaded system prompt")
     except (FileNotFoundError, ValueError) as exc:
+        logger.error(f"Error loading system prompt: {exc}")
         print(f"Error loading system prompt: {exc}", file=sys.stderr)
         return 1
 
+    # Load custom rules if specified
+    custom_rules = None
+    if args.rules_file:
+        try:
+            custom_rules = load_rules_from_json(args.rules_file)
+            logger.info(f"Loaded {len(custom_rules)} custom rules from {args.rules_file}")
+        except (FileNotFoundError, ValueError) as exc:
+            logger.error(f"Error loading custom rules: {exc}")
+            print(f"Error loading custom rules: {exc}", file=sys.stderr)
+            return 1
+
     try:
         client = build_client(args)
-    except (OllamaError, ProviderError) as exc:
-        print(f"Error configuring provider: {exc}", file=sys.stderr)
+        if client:
+            logger.info(f"Configured Ollama client (timeout={args.timeout}s, retries={args.retries})")
+    except OllamaError as exc:
+        logger.error(f"Error configuring Ollama client: {exc}")
+        print(f"Error configuring Ollama client: {exc}", file=sys.stderr)
         return 2
 
     try:
-        # Use async runner by default for better performance
-        if args.no_async or args.concurrency == 1:
-            # Use synchronous runner
-            results = run_assessment(prompts, args.model, client=client, demo_mode=args.demo, system_prompt=system_prompt)
-        else:
-            # Use async runner with concurrency control
-            print(f"Running assessment with {args.concurrency} concurrent requests...")
-            results = run_assessment_sync_wrapper(
-                prompts,
-                args.model,
-                provider=client,
-                demo_mode=args.demo,
-                system_prompt=system_prompt,
-                concurrency=args.concurrency,
-            )
-    except (OllamaError, ProviderError) as exc:
-        print(f"Provider error: {exc}", file=sys.stderr)
+        logger.info(f"Running assessment with {args.workers} worker(s)")
+        results = run_assessment(
+            prompts,
+            args.model,
+            client=client,
+            demo_mode=args.demo,
+            system_prompt=system_prompt,
+            rules=custom_rules,
+            workers=args.workers,
+            show_progress=not args.no_progress,
+        )
+        logger.info(f"Assessment complete. Processed {len(results)} prompts")
+    except OllamaError as exc:
+        logger.error(f"Ollama error: {exc}")
+        print(f"Ollama error: {exc}", file=sys.stderr)
         return 3
     except Exception as exc:  # pragma: no cover - defensive
+        logger.error(f"Unexpected error: {exc}", exc_info=True)
         print(f"Unexpected error: {exc}", file=sys.stderr)
         return 4
 
     output_path = Path(args.output)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     try:
-        save_output(output_path, results, forced_format=args.format)
+        save_output(output_path, serialize_results(results), forced_format=args.format)
+        logger.info(f"Results saved to {output_path}")
     except ValueError as exc:
+        logger.error(f"Error writing output: {exc}")
         print(f"Error writing output: {exc}", file=sys.stderr)
         return 1
 
-    # Calculate total cost
-    total_cost = sum(r.cost_usd for r in results)
+    # Generate HTML report if requested
+    if args.html_report:
+        try:
+            html_path = Path(args.html_report)
+            html_path.parent.mkdir(parents=True, exist_ok=True)
+            generate_html_report(results, html_path, title=f"LLM Security Assessment - {args.model}")
+            logger.info(f"HTML report generated at {html_path}")
+            print(f"HTML report generated at {html_path}")
+        except Exception as exc:  # pragma: no cover
+            logger.error(f"Error generating HTML report: {exc}")
+            print(f"Error generating HTML report: {exc}", file=sys.stderr)
 
-    # Print summary
     print(f"Processed {len(results)} prompts. Results stored at {output_path}.")
     if total_cost > 0:
         print(f"Total estimated cost: ${total_cost:.4f} USD")
