@@ -1,4 +1,4 @@
-"""Core orchestration for running prompts against Ollama or demo mode."""
+"""Core orchestration for running prompts against LLM providers or demo mode."""
 from __future__ import annotations
 
 import os
@@ -9,6 +9,7 @@ from typing import Iterable, List, Sequence
 from llm_tester.analysis import analyze_response
 from llm_tester.client import OllamaClient, OllamaError
 from llm_tester.prompts import Prompt
+from llm_tester.providers import LLMProvider, ProviderError
 from llm_tester.rules import Rule
 
 DEMO_ENV = "LLM_TESTER_DEMO"
@@ -23,25 +24,49 @@ class ResultRecord:
     model: str
     response_length: int
     triggered_rules: List[str]
+    cost_usd: float = 0.0
+    provider: str | None = None
 
 
 def run_prompt(
     prompt: Prompt,
     model: str,
     *,
-    client: OllamaClient | None,
+    client: OllamaClient | LLMProvider | None,
     demo_mode: bool,
     analyze_prompt: bool = False,
     rules: Sequence[Rule] | None = None,
     prompt_rules: Sequence[Rule] | None = None,
     system_prompt: str | None = None,
 ) -> ResultRecord:
+    cost = 0.0
+    provider_name = None
+
     if demo_mode:
         response = f"[DEMO RESPONSE] Model {model} would respond to: {prompt.text}"
+        provider_name = "demo"
     else:
         if client is None:
-            raise OllamaError("LLM client is not configured")
-        response = client.generate(prompt.text, model, system=system_prompt)
+            raise ProviderError("LLM client is not configured")
+
+        # Support both old OllamaClient and new LLMProvider
+        try:
+            response = client.generate(prompt.text, model, system=system_prompt)
+
+            # Get provider name and cost if using new provider system
+            if isinstance(client, LLMProvider):
+                provider_name = client.get_provider_name()
+                cost = client.estimate_cost(prompt.text, response, model)
+            else:
+                # Legacy OllamaClient
+                provider_name = "ollama"
+                cost = 0.0
+
+        except (OllamaError, ProviderError) as exc:
+            # Re-raise as ProviderError for consistency
+            if isinstance(exc, OllamaError):
+                raise ProviderError(str(exc)) from exc
+            raise
 
     analysis = analyze_response(
         response,
@@ -58,6 +83,8 @@ def run_prompt(
         model=model,
         response_length=analysis.response_length,
         triggered_rules=analysis.triggered_rules,
+        cost_usd=cost,
+        provider=provider_name,
     )
 
 
@@ -65,7 +92,7 @@ def run_assessment(
     prompts: Sequence[Prompt],
     model: str,
     *,
-    client: OllamaClient | None = None,
+    client: OllamaClient | LLMProvider | None = None,
     demo_mode: bool | None = None,
     analyze_prompt: bool = False,
     rules: Sequence[Rule] | None = None,
