@@ -13,6 +13,7 @@ from llm_tester import prompts as prompt_loader
 from llm_tester.client import BASE_URL_ENV, OllamaClient, OllamaError
 from llm_tester.providers import LLMProvider, ProviderError
 from llm_tester.providers.factory import create_provider, list_providers
+from llm_tester.reporting import generate_html_report, generate_sarif_report
 from llm_tester.runner import DEMO_ENV, ResultRecord, run_assessment, serialize_results
 
 
@@ -37,7 +38,7 @@ def parse_args(argv: List[str]) -> argparse.Namespace:
         help="Number of retries for transient errors (timeouts, HTTP 5xx).",
     )
     parser.add_argument("--demo", action="store_true", help="Run in offline demo mode without network calls.")
-    parser.add_argument("--format", choices=["csv", "jsonl"], default=None, help="Force output format.")
+    parser.add_argument("--format", choices=["csv", "jsonl", "html", "sarif"], default=None, help="Output format (csv, jsonl, html, sarif).")
     parser.add_argument(
         "--system-prompt",
         default=None,
@@ -67,14 +68,36 @@ def _write_jsonl(output_path: Path, records: Iterable[dict]) -> None:
             handle.write(json.dumps(row, ensure_ascii=False) + "\n")
 
 
-def save_output(path: Path, records: Iterable[dict], forced_format: str | None = None) -> None:
+def save_output(
+    path: Path,
+    records: Iterable[dict] | List[ResultRecord],
+    forced_format: str | None = None,
+) -> None:
+    """Save output in various formats."""
     suffix = forced_format or path.suffix.lstrip(".").lower()
-    if suffix == "csv":
-        _write_csv(path, records)
-    elif suffix == "jsonl":
-        _write_jsonl(path, records)
+
+    # Convert ResultRecord objects to dicts if needed
+    if records and isinstance(list(records)[0], ResultRecord):
+        result_objects = list(records)
+        dict_records = serialize_results(result_objects)
     else:
-        raise ValueError("Output must be .csv or .jsonl or use --format")
+        dict_records = list(records)
+        result_objects = None
+
+    if suffix == "csv":
+        _write_csv(path, dict_records)
+    elif suffix == "jsonl":
+        _write_jsonl(path, dict_records)
+    elif suffix == "html":
+        if not result_objects:
+            raise ValueError("HTML format requires ResultRecord objects")
+        generate_html_report(result_objects, path)
+    elif suffix == "sarif":
+        if not result_objects:
+            raise ValueError("SARIF format requires ResultRecord objects")
+        generate_sarif_report(result_objects, path)
+    else:
+        raise ValueError("Output format must be csv, jsonl, html, or sarif (use --format)")
 
 
 def build_client(args: argparse.Namespace) -> OllamaClient | LLMProvider | None:
@@ -155,7 +178,7 @@ def main(argv: List[str] | None = None) -> int:
     output_path = Path(args.output)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     try:
-        save_output(output_path, serialize_results(results), forced_format=args.format)
+        save_output(output_path, results, forced_format=args.format)
     except ValueError as exc:
         print(f"Error writing output: {exc}", file=sys.stderr)
         return 1
