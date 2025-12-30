@@ -300,18 +300,63 @@ def _generate_bar_chart(data: Dict[str, int]) -> str:
     if not data:
         return "<p>No data available</p>"
 
-    max_value = max(data.values())
-    html_parts = []
+    Args:
+        results: List of assessment results
+        output_path: Path to save the SARIF report
+    """
+    sarif_results = []
 
-    for label, count in sorted(data.items(), key=lambda x: x[1], reverse=True):
-        width_percent = (count / max_value * 100) if max_value > 0 else 0
-        html_parts.append(
-            f'<div style="margin: 10px 0;">'
-            f'<span class="bar-label">{html.escape(label)}</span>'
-            f'<div class="bar" style="width: {width_percent}%;">'
-            f'<span class="bar-count">{count}</span>'
-            f'</div></div>'
-        )
+    for i, result in enumerate(results):
+        if result.triggered_rules:
+            for rule in result.triggered_rules:
+                sarif_results.append({
+                    "ruleId": rule,
+                    "level": "warning",
+                    "message": {
+                        "text": f"LLM vulnerability detected: {rule}",
+                    },
+                    "locations": [{
+                        "physicalLocation": {
+                            "artifactLocation": {
+                                "uri": "llm_assessment",
+                            },
+                            "region": {
+                                "startLine": i + 1,
+                                "snippet": {
+                                    "text": result.prompt[:200]
+                                }
+                            }
+                        }
+                    }]
+                })
+
+    sarif_doc = {
+        "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+        "version": "2.1.0",
+        "runs": [{
+            "tool": {
+                "driver": {
+                    "name": "LLM Tester",
+                    "version": "0.2.0",
+                    "informationUri": "https://github.com/autrion/llm_tester",
+                    "rules": [
+                        {
+                            "id": rule_id,
+                            "name": rule_id,
+                            "shortDescription": {
+                                "text": f"LLM Security Rule: {rule_id}"
+                            },
+                            "help": {
+                                "text": "Model exhibited behavior matching this security pattern"
+                            }
+                        }
+                        for rule_id in set(r["ruleId"] for r in sarif_results)
+                    ]
+                }
+            },
+            "results": sarif_results
+        }]
+    }
 
     return "\n".join(html_parts)
 

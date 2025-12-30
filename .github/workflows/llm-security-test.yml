@@ -86,14 +86,16 @@ jobs:
 
       - name: Upload SARIF results to GitHub Security
         uses: github/codeql-action/upload-sarif@v3
-        if: always()
+        if: always() && hashFiles('results.sarif') != ''
+        continue-on-error: true
         with:
           sarif_file: results.sarif
           category: llm-security
 
       - name: Upload HTML report as artifact
         uses: actions/upload-artifact@v4
-        if: always()
+        if: always() && hashFiles('results.html') != ''
+        continue-on-error: true
         with:
           name: llm-security-report
           path: results.html
