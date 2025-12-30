@@ -6,6 +6,13 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Iterable, List, Sequence
 
+try:
+    from llm_tester.ml_detection import MLJailbreakDetector, create_enhanced_detector
+
+    ML_AVAILABLE = True
+except ImportError:
+    ML_AVAILABLE = False
+
 
 @dataclass(frozen=True)
 class Rule(ABC):
@@ -46,6 +53,31 @@ class RegexRule(Rule):
 
     def check(self, text: str) -> bool:
         return bool(self._compiled.search(text))
+
+
+@dataclass(frozen=True)
+class MLRule(Rule):
+    """Rule that uses ML-based semantic similarity detection.
+
+    This rule detects jailbreaks using embedding similarity rather than
+    exact pattern matching, catching variants that bypass regex/keyword rules.
+    """
+
+    threshold: float = 0.6
+
+    def __post_init__(self) -> None:
+        """Initialize ML detector."""
+        if not ML_AVAILABLE:
+            raise ImportError("ML detection requires ml_detection module")
+
+        # Create detector instance (cached for performance)
+        detector = create_enhanced_detector(threshold=self.threshold)
+        object.__setattr__(self, "_detector", detector)
+
+    def check(self, text: str) -> bool:
+        """Check if text matches jailbreak patterns using ML similarity."""
+        result = self._detector.detect(text)
+        return result.is_suspicious
 
 
 def default_rules() -> List[Rule]:
@@ -512,6 +544,21 @@ def default_rules() -> List[Rule]:
         ),
     ]
 
+    # ML-BASED RULES (Optional, requires ml_detection module)
+    ml_rules: List[Rule] = []
+    if ML_AVAILABLE:
+        try:
+            ml_rules = [
+                MLRule(
+                    name="ml_semantic_jailbreak",
+                    description="ML-based semantic similarity detection for jailbreak variants",
+                    threshold=0.55,
+                ),
+            ]
+        except Exception:
+            # Silently skip if ML initialization fails
+            pass
+
     return [
         *injection_rules,
         *jailbreak_rules,
@@ -521,6 +568,7 @@ def default_rules() -> List[Rule]:
         *manipulation_rules,
         *adversarial_rules,
         *harmful_rules,
+        *ml_rules,
     ]
 
 
@@ -534,4 +582,12 @@ def evaluate_with_default_rules(text: str) -> List[Rule]:
     return triggered
 
 
-__all__ = ["Rule", "KeywordRule", "RegexRule", "default_rules", "evaluate_with_default_rules"]
+__all__ = [
+    "Rule",
+    "KeywordRule",
+    "RegexRule",
+    "MLRule",
+    "default_rules",
+    "evaluate_with_default_rules",
+    "ML_AVAILABLE",
+]

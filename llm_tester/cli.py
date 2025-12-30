@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Iterable, List
 
 from llm_tester import prompts as prompt_loader
+from llm_tester.async_runner import run_assessment_sync_wrapper
 from llm_tester.client import BASE_URL_ENV, OllamaClient, OllamaError
 from llm_tester.providers import LLMProvider, ProviderError
 from llm_tester.providers.factory import create_provider, list_providers
@@ -48,6 +49,17 @@ def parse_args(argv: List[str]) -> argparse.Namespace:
         "--debug",
         action="store_true",
         help="Enable debug output for provider requests.",
+    )
+    parser.add_argument(
+        "--concurrency",
+        type=int,
+        default=10,
+        help="Maximum concurrent requests for async execution (default: 10). Set to 1 for sequential.",
+    )
+    parser.add_argument(
+        "--no-async",
+        action="store_true",
+        help="Disable async execution (use synchronous runner).",
     )
     return parser.parse_args(argv)
 
@@ -167,7 +179,21 @@ def main(argv: List[str] | None = None) -> int:
         return 2
 
     try:
-        results = run_assessment(prompts, args.model, client=client, demo_mode=args.demo, system_prompt=system_prompt)
+        # Use async runner by default for better performance
+        if args.no_async or args.concurrency == 1:
+            # Use synchronous runner
+            results = run_assessment(prompts, args.model, client=client, demo_mode=args.demo, system_prompt=system_prompt)
+        else:
+            # Use async runner with concurrency control
+            print(f"Running assessment with {args.concurrency} concurrent requests...")
+            results = run_assessment_sync_wrapper(
+                prompts,
+                args.model,
+                provider=client,
+                demo_mode=args.demo,
+                system_prompt=system_prompt,
+                concurrency=args.concurrency,
+            )
     except (OllamaError, ProviderError) as exc:
         print(f"Provider error: {exc}", file=sys.stderr)
         return 3
